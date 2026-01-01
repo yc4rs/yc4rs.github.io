@@ -1,0 +1,69 @@
+{
+	"block_list" : [
+	{
+		"block_size" : "big",
+		"title" : "公司運作",
+		"content" : [
+			{
+				"size":2,
+				"text":"🍗訂便當系統",
+				"url":"https://dinbendon.net/do/login/wicket:pageMapName/wicket-0"
+			},
+			{
+				"size":2,
+				"text":"👤Nueip HR系統",
+				"url":"https://portal.nueip.com/home"
+			}
+		]
+	},{
+		"block_size" : "big",
+		"title" : "前端開發運作",
+		"content" : [
+			{
+				"size":3,
+				"text":"遊戲清單",
+				"url":"https://docs.google.com/spreadsheets/d/1pJUZBcNfnOkAyN4tbeC0Oj3ZIHez0TISaOPMoWGddZk/edit?gid=0#gid=0"
+			},
+			{
+				"size":3,
+				"text":"i18n網址",
+				"url":"https://is.ccglab.net/i18nManagement"
+			},
+			{
+				"size":3,
+				"text":"Jira_RSBoard",
+				"url":"https://jira-ruisi.atlassian.net/jira/software/c/projects/RS/list"
+			}
+		]
+	},{
+		"block_size" : "big",
+		"title" : "RS測試站",
+		"content" : [
+			{
+				"size":2,
+				"text":"Lab測試站",
+				"url":"https://www.ccglab.net/login"
+			},
+			{
+				"size":2,
+				"text":"QA測試站",
+				"url":"https://www.ccgqa.net/login"
+			}
+		]
+	},{
+		"block_size" : "big",
+		"title" : "FC測試站",
+		"content" : [
+			{
+				"size":2,
+				"text":"Lab測試站",
+				"url":"https://lab.gdg168.com"
+			},
+			{
+				"size":2,
+				"text":"QA測試站",
+				"url":"https://qa-www.mearhh.com/login"
+			}
+		]
+	}]
+}
