@@ -17,26 +17,6 @@
 		]
 	},{
 		"block_size" : "big",
-		"title" : "前端開發運作",
-		"content" : [
-			{
-				"size":3,
-				"text":"遊戲清單",
-				"url":"https://docs.google.com/spreadsheets/d/1pJUZBcNfnOkAyN4tbeC0Oj3ZIHez0TISaOPMoWGddZk/edit?gid=0#gid=0"
-			},
-			{
-				"size":3,
-				"text":"i18n網址",
-				"url":"https://is.ccglab.net/i18nManagement"
-			},
-			{
-				"size":3,
-				"text":"Jira_RSBoard",
-				"url":"https://jira-ruisi.atlassian.net/jira/software/c/projects/RS/list"
-			}
-		]
-	},{
-		"block_size" : "big",
 		"title" : "RS測試站",
 		"content" : [
 			{
@@ -63,6 +43,36 @@
 				"size":2,
 				"text":"QA測試站",
 				"url":"https://qa-www.mearhh.com/login"
+			}
+		]
+	},{
+		"block_size" : "big",
+		"title" : "前端開發運作",
+		"content" : [
+			{
+				"size":3,
+				"text":"遊戲清單",
+				"url":"https://docs.google.com/spreadsheets/d/1pJUZBcNfnOkAyN4tbeC0Oj3ZIHez0TISaOPMoWGddZk/edit?gid=0#gid=0"
+			},
+			{
+				"size":3,
+				"text":"i18n網址",
+				"url":"https://is.ccglab.net/i18nManagement"
+			},
+			{
+				"size":3,
+				"text":"Jira_RSBoard",
+				"url":"https://jira-ruisi.atlassian.net/jira/software/c/projects/RS/list"
+			},
+			{
+				"size":2,
+				"text":"前端計劃",
+				"url":"https://docs.google.com/spreadsheets/d/1stwS0i5zHHocIDf6AIv014qj8tAeRGOXfVPZMOuCzO4/edit?gid=0#gid=0"
+			},
+			{
+				"size":2,
+				"text":"計劃表",
+				"url":"https://docs.google.com/spreadsheets/d/1IYLJuUezFe1fK7t7qywnNTElKx75K2DcXYjAJQUXAQk/edit?gid=2134849194#gid=2134849194"
 			}
 		]
 	}]
