@@ -17,17 +17,52 @@
 		]
 	},{
 		"block_size" : "big",
-		"title" : "RS測試站",
+		"title" : "RS前台連結",
 		"content" : [
 			{
-				"size":2,
-				"text":"Lab測試站",
-				"url":"https://www.ccglab.net/login"
+				"size":4,
+				"text":"Lab",
+				"url":"https://www.ccglab.net/"
 			},
 			{
-				"size":2,
-				"text":"QA測試站",
-				"url":"https://www.ccgqa.net/login"
+				"size":4,
+				"text":"QA",
+				"url":"https://www.ccgqa.net/"
+			},
+			{
+				"size":4,
+				"text":"Release",
+				"url":"https://www.ccgrelease.net/"
+			},
+			{
+				"size":4,
+				"text":"Live",
+				"url":"https://h97v1nhs-www.hrg666.net/"
+			}
+		]
+	},{
+		"block_size" : "big",
+		"title" : "RS後台連結",
+		"content" : [
+			{
+				"size":4,
+				"text":"Lab",
+				"url":"https://agent.ccglab.net/"
+			},
+			{
+				"size":4,
+				"text":"QA",
+				"url":"https://agent.ccgqa.net/"
+			},
+			{
+				"size":4,
+				"text":"Release",
+				"url":"https://agent.ccgrelease.net/"
+			},
+			{
+				"size":4,
+				"text":"Live",
+				"url":"https://h97v1nhs-agent.hrg666.net/"
 			}
 		]
 	},{
@@ -65,14 +100,19 @@
 				"url":"https://jira-ruisi.atlassian.net/jira/software/c/projects/RS/list"
 			},
 			{
-				"size":2,
+				"size":3,
 				"text":"前端計劃",
 				"url":"https://docs.google.com/spreadsheets/d/1stwS0i5zHHocIDf6AIv014qj8tAeRGOXfVPZMOuCzO4/edit?gid=0#gid=0"
 			},
 			{
-				"size":2,
+				"size":3,
 				"text":"計劃表",
 				"url":"https://docs.google.com/spreadsheets/d/1IYLJuUezFe1fK7t7qywnNTElKx75K2DcXYjAJQUXAQk/edit?gid=2134849194#gid=2134849194"
+			},
+			{
+				"size":3,
+				"text":"Jenkins",
+				"url":"https://jenkins-141.kb24mamba.com/"
 			}
 		]
 	}]
