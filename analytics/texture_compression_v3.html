@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>貼圖壓縮格式比較</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+          sans-serif;
+        background: #f7f6f3;
+        color: #1a1a1a;
+        padding: 2rem;
+        min-height: 100vh;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 16px;
+        border: 0.5px solid rgba(0, 0, 0, 0.08);
+        padding: 1.75rem 2rem;
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+
+      .header {
+        margin-bottom: 1.5rem;
+      }
+      .header h1 {
+        font-size: 17px;
+        font-weight: 500;
+        color: #1a1a1a;
+        margin-bottom: 4px;
+      }
+      .header p {
+        font-size: 12px;
+        color: #888;
+        line-height: 1.6;
+      }
+
+      .notice {
+        background: #fdf8ee;
+        border-left: 3px solid #ef9f27;
+        border-radius: 0 8px 8px 0;
+        padding: 8px 12px;
+        font-size: 11.5px;
+        color: #7a5c10;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+      }
+
+      .legend {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 1rem;
+        font-size: 12px;
+        color: #666;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+      .legend-note {
+        margin-left: auto;
+        font-size: 11px;
+        color: #aaa;
+      }
+
+      .charts-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 2rem;
+      }
+
+      .chart-col p {
+        font-size: 11px;
+        color: #888;
+        font-weight: 500;
+        text-align: center;
+        margin-bottom: 6px;
+      }
+
+      .chart-wrap {
+        position: relative;
+        width: 100%;
+        height: 260px;
+      }
+
+      .section-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: #1a1a1a;
+        margin-bottom: 10px;
+        padding-top: 0.25rem;
+        border-top: 0.5px solid #eee;
+        padding-top: 1rem;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+
+      thead th {
+        text-align: left;
+        padding: 7px 10px;
+        color: #999;
+        font-weight: 500;
+        border-bottom: 0.5px solid #eee;
+        white-space: nowrap;
+      }
+      thead th:not(:first-child) {
+        text-align: center;
+      }
+
+      tbody tr {
+        border-bottom: 0.5px solid #f3f3f3;
+      }
+      tbody tr:last-child {
+        border-bottom: none;
+      }
+      tbody td {
+        padding: 7px 10px;
+        vertical-align: middle;
+      }
+      tbody td:not(:first-child):not(:last-child) {
+        text-align: center;
+      }
+
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        padding: 3px 9px;
+        border-radius: 5px;
+        white-space: nowrap;
+        font-weight: 500;
+      }
+
+      .pill-warn {
+        background: #fff0e8;
+        color: #c0440c;
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-weight: 500;
+      }
+
+      .pill-good {
+        background: #e8f6ef;
+        color: #0f6e56;
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-weight: 500;
+      }
+
+      .note-cell {
+        font-size: 11px;
+        color: #999;
+      }
+      .star {
+        color: #d4930a;
+      }
+
+      .footer {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 0.5px solid #eee;
+        font-size: 11px;
+        color: #bbb;
+        line-height: 1.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="header">
+        <h1>貼圖壓縮格式比較</h1>
+        <p>
+          磁碟大小 · VRAM 佔用 · 畫質維持率 &nbsp;—&nbsp; 以 PNG
+          一般存檔（未優化）= 100% 為基準
+        </p>
+      </div>
+
+      <div class="notice">
+        一般工具（Photoshop、Aseprite 等）隨意存出的 PNG 壓縮率差，ASTC 4x4
+        磁碟比它<strong>小</strong>，這就是你實際看到的情況。但換成 gulp
+        優化過的 PNG level 6，ASTC 4x4 反而比它<strong>大</strong>，因為 ASTC
+        存的是 raw GPU 格式，沒有 DEFLATE 壓縮。ASTC 真正省的是
+        <strong>VRAM</strong>，不是下載體積。
+      </div>
+
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-dot" style="background: #378add"></span>PNG
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background: #1d9e75"></span>WebP
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot" style="background: #ef9f27"></span>ASTC
+        </div>
+        <span class="legend-note"
+          >* 數值以 PNG 一般存檔（未優化）= 100% 為基準</span
+        >
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-col">
+          <p>磁碟大小（下載傳輸）</p>
+          <div class="chart-wrap" style="height: 300px">
+            <canvas
+              id="c1"
+              role="img"
+              aria-label="各格式磁碟大小，PNG一般存檔=100%基準"
+              >PNG一般存檔100, PNG lv6 45, PNG有損25, WebP90 21, ASTC4x4 64,
+              ASTC6x6 30</canvas
+            >
+          </div>
+        </div>
+        <div class="chart-col">
+          <p>畫質維持率</p>
+          <div class="chart-wrap" style="height: 300px">
+            <canvas id="c3" role="img" aria-label="各格式畫質維持率"
+              >PNG無損/lv6 100, PNG有損78, WebP90 93, ASTC4x4 88, ASTC6x6
+              80</canvas
+            >
+          </div>
+        </div>
+        <div class="chart-col">
+          <p>VRAM 佔用</p>
+          <div class="chart-wrap" style="height: 300px">
+            <canvas
+              id="c2"
+              role="img"
+              aria-label="各格式VRAM佔用，ASTC硬體壓縮大幅節省"
+              >PNG類/WebP 100，ASTC4x4 27，ASTC6x6 12</canvas
+            >
+          </div>
+        </div>
+      </div>
+
+      <p class="section-title">格式對照表</p>
+      <table>
+        <thead>
+          <tr>
+            <th>格式</th>
+            <th>磁碟大小</th>
+            <th>VRAM</th>
+            <th>畫質維持</th>
+            <th>硬體解碼</th>
+            <th style="text-align: left">備註</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <span class="badge" style="background: #e6f1fb; color: #0c447c"
+                >PNG 一般存檔<br /><span
+                  style="font-size: 10px; font-weight: 400"
+                  >未優化（基準）</span
+                ></span
+              >
+            </td>
+            <td>100%</td>
+            <td>100%</td>
+            <td style="color: #1d9e75">100%</td>
+            <td style="color: #bbb">✗</td>
+            <td class="note-cell">一般工具隨意存出，壓縮率差，基準值</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="badge" style="background: #e6f1fb; color: #0c447c"
+                >PNG level 6<br /><span
+                  style="font-size: 10px; font-weight: 400"
+                  >gulp 優化後</span
+                ></span
+              >
+            </td>
+            <td>~45%</td>
+            <td>100%</td>
+            <td style="color: #1d9e75">100%</td>
+            <td style="color: #bbb">✗</td>
+            <td class="note-cell">DEFLATE 充分優化，無損，VRAM 仍高</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="badge" style="background: #e6f1fb; color: #0c447c"
+                >PNG 有損<br /><span style="font-size: 10px; font-weight: 400"
+                  >pngquant [0.6, 0.8]</span
+                ></span
+              >
+            </td>
+            <td>~25%</td>
+            <td>100%</td>
+            <td>~78%</td>
+            <td style="color: #bbb">✗</td>
+            <td class="note-cell">漸層/臉部明顯色帶，Spine 描邊易鋸齒</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="badge" style="background: #e1f5ee; color: #085041"
+                >WebP 90</span
+              >
+            </td>
+            <td>~21%</td>
+            <td>100%</td>
+            <td style="color: #1d9e75">~93%</td>
+            <td style="color: #bbb">✗</td>
+            <td class="note-cell">
+              <span class="star">★</span> H5 推薦首選，體積小畫質佳
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <span class="badge" style="background: #faeeda; color: #633806"
+                >ASTC 4x4</span
+              >
+            </td>
+            <td>~64%</td>
+            <td><span class="pill-good">27%</span></td>
+            <td>~88%</td>
+            <td style="color: #1d9e75">✓</td>
+            <td class="note-cell">
+              比未優化 PNG 小，比 level 6 大；VRAM 省 73%，解決 iPad 爆記憶體
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <span class="badge" style="background: #faeeda; color: #633806"
+                >ASTC 6x6</span
+              >
+            </td>
+            <td>~30%</td>
+            <td><span class="pill-good">12%</span></td>
+            <td>~80%</td>
+            <td style="color: #1d9e75">✓</td>
+            <td class="note-cell">
+              <span class="star">★</span> 磁碟/VRAM 均衡，背景大圖最佳選擇
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="footer">
+        磁碟數值參考來源：pngquant 官方 benchmark、Google WebP 文件、Arm ASTC
+        規格書。VRAM 比例依各格式 bits-per-pixel 推算（RGBA PNG = 32bpp；ASTC
+        4x4 = 8bpp；ASTC 6x6 =
+        3.56bpp）。畫質維持率為主觀感知估值，實際結果因圖片內容而異。
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script>
+      const labels = [
+        "PNG 一般存檔\n(未優化)",
+        "PNG level 6",
+        "PNG 有損\npngquant",
+        "WebP 90",
+        "ASTC 4x4",
+        "ASTC 6x6",
+      ];
+      const colors = [
+        "#378ADD",
+        "#5BA3E8",
+        "#85B7EB",
+        "#1D9E75",
+        "#EF9F27",
+        "#d4930a",
+      ];
+
+      const diskData = [100, 45, 25, 21, 64, 30];
+      const vramData = [100, 100, 100, 100, 27, 12];
+      const qualData = [100, 100, 78, 93, 88, 80];
+
+      // Shared state (unused placeholder kept for future)
+      const allCharts = [];
+
+      const barColors = (data, baseColors) =>
+        data.map((v, i) => (v > 100 ? "#D85A30" : baseColors[i]));
+
+      const makeCfg = (data, showY, max) => ({
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              data,
+              backgroundColor: barColors(data, colors),
+              borderWidth: 0,
+              borderRadius: 4,
+              barThickness: 20,
+            },
+          ],
+        },
+        plugins: [],
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { label: (ctx) => "  " + ctx.raw + "%" },
+            },
+          },
+          scales: {
+            x: {
+              max,
+              ticks: {
+                font: { size: 10 },
+                callback: (v) => v + "%",
+                maxTicksLimit: 5,
+              },
+              grid: { color: "rgba(0,0,0,0.05)" },
+            },
+            y: {
+              display: showY,
+              ticks: { font: { size: 11 }, color: "#999" },
+              grid: { display: false },
+            },
+          },
+          layout: { padding: { right: 6, top: 4 } },
+        },
+      });
+
+      const c1 = new Chart(
+        document.getElementById("c1"),
+        makeCfg(diskData, true, 110),
+      );
+      const c2 = new Chart(
+        document.getElementById("c2"),
+        makeCfg(vramData, false, 110),
+      );
+      const c3 = new Chart(
+        document.getElementById("c3"),
+        makeCfg(qualData, false, 110),
+      );
+      allCharts.push(c1, c2, c3);
+
+      // ── Freehand drawing overlay ──────────────────────────────────────────
+      const card = document.querySelector(".card");
+      card.style.position = "relative";
+
+      const overlay = document.createElement("canvas");
+      overlay.style.cssText = `
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; z-index:10; border-radius:16px;
+`;
+      card.appendChild(overlay);
+
+      const hint = document.createElement("p");
+      hint.style.cssText =
+        "font-size:11px;color:#bbb;margin-top:8px;text-align:right;";
+      hint.textContent = "✏️ 拖曳畫線　單點清除";
+      document.querySelector(".charts-grid").after(hint);
+
+      let drawing = false;
+      let hasMoved = false;
+      let octx = null;
+
+      function resizeOverlay() {
+        const r = card.getBoundingClientRect();
+        overlay.width = r.width * devicePixelRatio;
+        overlay.height = r.height * devicePixelRatio;
+        octx = overlay.getContext("2d");
+        octx.scale(devicePixelRatio, devicePixelRatio);
+      }
+      resizeOverlay();
+      window.addEventListener("resize", resizeOverlay);
+
+      function getPos(e) {
+        const r = overlay.getBoundingClientRect();
+        const src = e.touches ? e.touches[0] : e;
+        return { x: src.clientX - r.left, y: src.clientY - r.top };
+      }
+
+      card.addEventListener("mousedown", (e) => {
+        drawing = true;
+        hasMoved = false;
+        overlay.style.pointerEvents = "auto";
+        const p = getPos(e);
+        octx.beginPath();
+        octx.moveTo(p.x, p.y);
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!drawing) return;
+        hasMoved = true;
+        const p = getPos(e);
+        octx.lineTo(p.x, p.y);
+        octx.strokeStyle = "rgba(210,30,30,0.85)";
+        octx.lineWidth = 2.5;
+        octx.lineJoin = "round";
+        octx.lineCap = "round";
+        octx.stroke();
+        octx.beginPath();
+        octx.moveTo(p.x, p.y);
+        hint.textContent = "✏️ 拖曳畫線　單點清除";
+      });
+
+      window.addEventListener("mouseup", (e) => {
+        if (!drawing) return;
+        drawing = false;
+        overlay.style.pointerEvents = "none";
+        if (!hasMoved) {
+          // Single click → clear
+          octx.clearRect(
+            0,
+            0,
+            overlay.width / devicePixelRatio,
+            overlay.height / devicePixelRatio,
+          );
+          hint.textContent = "✏️ 已清除　拖曳可繼續畫";
+        }
+      });
+    </script>
+  </body>
+</html>

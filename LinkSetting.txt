@@ -115,5 +115,15 @@
 				"url":"https://jenkins-141.kb24mamba.com/"
 			}
 		]
+	},{
+		"block_size" : "big",
+		"title" : "分析報告",
+		"content" : [
+			{
+				"size":1,
+				"text":"圖檔格式分析表",
+				"url":"analytics/texture_compression_v3.html"
+			}
+		]
 	}]
 }
