@@ -117,6 +117,16 @@
 		]
 	},{
 		"block_size" : "big",
+		"title" : "數據分析",
+		"content" : [
+			{
+				"size":1,
+				"text":"Datadog",
+				"url":"https://app.datadoghq.com/"
+			}
+		]
+	},{
+		"block_size" : "big",
 		"title" : "分析報告",
 		"content" : [
 			{
