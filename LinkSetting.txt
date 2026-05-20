@@ -7,7 +7,7 @@
 			{
 				"size":2,
 				"text":"🍗訂便當系統",
-				"url":"https://dinbendon.net/do/login/wicket:pageMapName/wicket-0"
+				"url":"https://dinbendon.net/do/"
 			},
 			{
 				"size":2,
