@@ -130,13 +130,17 @@
 		"title" : "前端&美術協作工具",
 		"content" : [
 			{
-				"size":2,
+				"size":3,
 				"text":"Tween視覺化工具",
 				"url":"other_page/tween-preview-v2.html"
 			},{
-				"size":2,
+				"size":3,
 				"text":"SpineViewer",
 				"url":"other_page/SpineViewer/index.html"
+			},{
+				"size":3,
+				"text":"Demo",
+				"url":"other_page/Demo/index.html"
 			}
 		]
 	},{
