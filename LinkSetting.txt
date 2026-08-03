@@ -112,7 +112,7 @@
 			{
 				"size":3,
 				"text":"Jenkins",
-				"url":"https://jenkins-141.kb24mamba.com/"
+				"url":"https://jenkins.kb24mamba.com/"
 			}
 		]
 	},{
