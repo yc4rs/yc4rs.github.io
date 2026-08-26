@@ -70,14 +70,9 @@
 		"title" : "FC測試站",
 		"content" : [
 			{
-				"size":2,
-				"text":"Lab測試站",
-				"url":"https://lab.gdg168.com"
-			},
-			{
-				"size":2,
-				"text":"QA測試站",
-				"url":"https://qa-www.mearhh.com/login"
+				"size":1,
+				"text":"Release",
+				"url":"https://fcg666.net/login"
 			}
 		]
 	},{
