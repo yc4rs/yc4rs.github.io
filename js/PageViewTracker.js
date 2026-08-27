@@ -1,26 +1,17 @@
 /**
  * 首頁瀏覽量統計（Google Sheet 後端）
  *
- * 【設定步驟】
- * 1. Google 試算表 → 擴充功能 → Apps Script
- * 2. 貼上 analytics/pageview-counter.gs 全部內容
- * 3. 選單執行 testSetup → 授權 → 確認試算表出現 PageViews 分頁
- * 4. 部署 → 新增部署作業 → 網路應用程式
- *    執行身分：我｜存取權：任何人
- * 5. 複製 Web App URL，貼到下方 API_URL
- * 6. push 到 GitHub，開啟 yc4rs.github.io 測試
+ * 【試算表】每天一個分頁（yyyy-MM-dd），每進入一次就寫一列
+ *   timestamp | local_ip | public_ip
+ * 刪除舊日期分頁即可 drop 歷史資料。stats 不回傳 IP 到網頁。
+ *
+ * 內網 IP 多數瀏覽器無法取得，可能為空欄，屬正常現象。
  */
 const PAGEVIEW_CONFIG = {
-  API_URL: "https://script.google.com/macros/s/AKfycbxQGQil_6_0KCoDk_6Amrv99qSlPJWOfeoeC6EpQWNDX0OvjYfGDi7DLQjtUNgOeAldWg/exec", // 例：https://script.google.com/macros/s/xxxxx/exec
+  API_URL: "https://script.google.com/macros/s/AKfycbxQGQil_6_0KCoDk_6Amrv99qSlPJWOfeoeC6EpQWNDX0OvjYfGDi7DLQjtUNgOeAldWg/exec",
 };
 
 (function () {
-  const SESSION_KEY_PREFIX = "yc4rs_pv_";
-
-  function getTodayKey() {
-    return SESSION_KEY_PREFIX + formatDate(new Date());
-  }
-
   function formatDate(date) {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -103,15 +94,76 @@ const PAGEVIEW_CONFIG = {
     setStatus("");
   }
 
+  function fetchPublicIp() {
+    return fetch("https://api.ipify.org?format=json")
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        return data.ip || "";
+      })
+      .catch(function () {
+        return "";
+      });
+  }
+
+  function fetchLocalIp() {
+    return new Promise(function (resolve) {
+      if (!window.RTCPeerConnection) {
+        resolve("");
+        return;
+      }
+
+      var finished = false;
+      var finish = function (ip) {
+        if (finished) return;
+        finished = true;
+        try {
+          pc.close();
+        } catch (e) {}
+        resolve(ip || "");
+      };
+
+      var pc = new RTCPeerConnection({ iceServers: [] });
+      pc.createDataChannel("");
+      pc.onicecandidate = function (event) {
+        if (!event || !event.candidate) return;
+        var match = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(event.candidate.candidate);
+        if (match) finish(match[1]);
+      };
+      pc.createOffer()
+        .then(function (offer) {
+          return pc.setLocalDescription(offer);
+        })
+        .catch(function () {
+          finish("");
+        });
+      setTimeout(function () {
+        finish("");
+      }, 2000);
+    });
+  }
+
+  function collectClientInfo() {
+    return Promise.all([fetchPublicIp(), fetchLocalIp()]).then(function (results) {
+      return {
+        publicIp: results[0],
+        localIp: results[1],
+      };
+    });
+  }
+
   function recordVisit() {
     if (!PAGEVIEW_CONFIG.API_URL) return Promise.resolve();
 
-    const sessionKey = getTodayKey();
-    if (sessionStorage.getItem(sessionKey)) return Promise.resolve();
-
-    return fetch(PAGEVIEW_CONFIG.API_URL + "?action=hit")
-      .then(function () {
-        sessionStorage.setItem(sessionKey, "1");
+    return collectClientInfo()
+      .then(function (info) {
+        const params = new URLSearchParams({
+          action: "hit",
+          public_ip: info.publicIp,
+          local_ip: info.localIp,
+        });
+        return fetch(PAGEVIEW_CONFIG.API_URL + "?" + params.toString());
       })
       .catch(function () {
         /* 計數失敗不阻擋頁面 */
