@@ -1,17 +1,20 @@
 /**
  * 首頁瀏覽量統計（Google Sheet 後端）
  *
- * 【試算表】每天一個分頁（yyyy-MM-dd），每進入一次就寫一列
- *   timestamp | local_ip | public_ip
- * 刪除舊日期分頁即可 drop 歷史資料。stats 不回傳 IP 到網頁。
- *
- * 內網 IP 多數瀏覽器無法取得，可能為空欄，屬正常現象。
+ * 【試算表】每天分頁 yyyy-MM-dd
+ *   visit_ts | timestamp | device_id | device_fp | local_ip | public_ip
+ * 進頁立刻 hit（visit_ts + device）；背景 patch 依 visit_ts 補 IP。
  */
 const PAGEVIEW_CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxQGQil_6_0KCoDk_6Amrv99qSlPJWOfeoeC6EpQWNDX0OvjYfGDi7DLQjtUNgOeAldWg/exec",
+  LOCAL_IP_TIMEOUT_MS: 3500,
+  DEVICE_ID_KEY: "yc4rs_device_id",
 };
 
 (function () {
+  var visitTs = Date.now();
+  var pendingStats = null;
+  var hitSent = false;
   function formatDate(date) {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -94,6 +97,47 @@ const PAGEVIEW_CONFIG = {
     setStatus("");
   }
 
+  function getDeviceId() {
+    try {
+      var stored = localStorage.getItem(PAGEVIEW_CONFIG.DEVICE_ID_KEY);
+      if (stored) return stored;
+
+      var id =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : "dev-" + visitTs + "-" + Math.random().toString(16).slice(2);
+      localStorage.setItem(PAGEVIEW_CONFIG.DEVICE_ID_KEY, id);
+      return id;
+    } catch (e) {
+      return "dev-" + visitTs;
+    }
+  }
+
+  function getDeviceFingerprint() {
+    var raw = [
+      String(navigator.hardwareConcurrency || ""),
+      String(navigator.deviceMemory || ""),
+      String(navigator.maxTouchPoints || ""),
+    ].join("|");
+
+    if (!window.crypto || !crypto.subtle || !window.TextEncoder) {
+      return Promise.resolve("");
+    }
+
+    return crypto.subtle
+      .digest("SHA-256", new TextEncoder().encode(raw))
+      .then(function (buf) {
+        return Array.from(new Uint8Array(buf))
+          .map(function (b) {
+            return b.toString(16).padStart(2, "0");
+          })
+          .join("");
+      })
+      .catch(function () {
+        return "";
+      });
+  }
+
   function fetchPublicIp() {
     return fetch("https://api.ipify.org?format=json")
       .then(function (res) {
@@ -107,6 +151,15 @@ const PAGEVIEW_CONFIG = {
       });
   }
 
+  function isPrivateIp(ip) {
+    var parts = ip.split(".").map(Number);
+    if (parts.length !== 4 || parts.some(function (n) { return isNaN(n); })) return false;
+    if (parts[0] === 10) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    return false;
+  }
+
   function fetchLocalIp() {
     return new Promise(function (resolve) {
       if (!window.RTCPeerConnection) {
@@ -114,33 +167,77 @@ const PAGEVIEW_CONFIG = {
         return;
       }
 
+      var privateIps = [];
+      var otherIps = [];
+      var localNames = [];
+      var seen = {};
       var finished = false;
-      var finish = function (ip) {
+      var pc;
+
+      function remember(list, value) {
+        if (!value || seen[value]) return;
+        seen[value] = true;
+        list.push(value);
+      }
+
+      function parseCandidate(candidateStr) {
+        var tokens = candidateStr.split(" ");
+        for (var i = 0; i < tokens.length; i++) {
+          var token = tokens[i];
+          if (/^[\d.]+$/.test(token) && token.split(".").length === 4) {
+            if (token === "127.0.0.1" || token.indexOf("127.") === 0) continue;
+            if (isPrivateIp(token)) remember(privateIps, token);
+            else remember(otherIps, token);
+          } else if (/\.local$/i.test(token)) {
+            remember(localNames, token);
+          }
+        }
+      }
+
+      function pickBestLocalIp() {
+        if (privateIps.length) return privateIps.join(", ");
+        if (localNames.length) return localNames.join(", ");
+        if (otherIps.length) return otherIps.join(", ");
+        return "";
+      }
+
+      function finish() {
         if (finished) return;
         finished = true;
         try {
-          pc.close();
+          if (pc) pc.close();
         } catch (e) {}
-        resolve(ip || "");
-      };
+        resolve(pickBestLocalIp());
+      }
 
-      var pc = new RTCPeerConnection({ iceServers: [] });
+      pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+        ],
+      });
+
       pc.createDataChannel("");
       pc.onicecandidate = function (event) {
-        if (!event || !event.candidate) return;
-        var match = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(event.candidate.candidate);
-        if (match) finish(match[1]);
+        if (event && event.candidate) {
+          parseCandidate(event.candidate.candidate);
+          return;
+        }
+        finish();
       };
+      pc.onicegatheringstatechange = function () {
+        if (pc.iceGatheringState === "complete") finish();
+      };
+
       pc.createOffer()
         .then(function (offer) {
           return pc.setLocalDescription(offer);
         })
         .catch(function () {
-          finish("");
+          finish();
         });
-      setTimeout(function () {
-        finish("");
-      }, 2000);
+
+      setTimeout(finish, PAGEVIEW_CONFIG.LOCAL_IP_TIMEOUT_MS || 3500);
     });
   }
 
@@ -153,39 +250,76 @@ const PAGEVIEW_CONFIG = {
     });
   }
 
-  function recordVisit() {
-    if (!PAGEVIEW_CONFIG.API_URL) return Promise.resolve();
-
-    return collectClientInfo()
-      .then(function (info) {
-        const params = new URLSearchParams({
-          action: "hit",
-          public_ip: info.publicIp,
-          local_ip: info.localIp,
-        });
-        return fetch(PAGEVIEW_CONFIG.API_URL + "?" + params.toString());
-      })
-      .catch(function () {
-        /* 計數失敗不阻擋頁面 */
-      });
+  function tryRenderStats() {
+    if (pendingStats) {
+      renderStats(pendingStats);
+    }
   }
 
-  function loadStats() {
-    if (!PAGEVIEW_CONFIG.API_URL) {
-      setStatus("請設定 API_URL", true);
-      return;
-    }
+  function buildApiUrl(params) {
+    return PAGEVIEW_CONFIG.API_URL + "?" + params.toString();
+  }
 
-    fetch(PAGEVIEW_CONFIG.API_URL + "?action=stats")
+  function patchIpsInBackground() {
+    collectClientInfo().then(function (info) {
+      if (!info.publicIp && !info.localIp) return;
+
+      var params = new URLSearchParams({
+        action: "patch",
+        visit_ts: String(visitTs),
+        public_ip: info.publicIp,
+        local_ip: info.localIp,
+      });
+      fetch(buildApiUrl(params), { keepalive: true }).catch(function () {});
+    });
+  }
+
+  function sendHitImmediately() {
+    if (!PAGEVIEW_CONFIG.API_URL || hitSent) return;
+    hitSent = true;
+
+    var deviceId = getDeviceId();
+
+    getDeviceFingerprint()
+      .then(function (deviceFp) {
+        var params = new URLSearchParams({
+          action: "hit",
+          visit_ts: String(visitTs),
+          device_id: deviceId,
+          device_fp: deviceFp,
+          public_ip: "",
+          local_ip: "",
+        });
+        return fetch(buildApiUrl(params), { keepalive: true });
+      })
       .then(function (res) {
         return res.json();
       })
       .then(function (data) {
-        renderStats(data);
+        pendingStats = data;
+        tryRenderStats();
       })
       .catch(function () {
-        setStatus("無法載入瀏覽統計", true);
+        fetch(buildApiUrl(new URLSearchParams({ action: "stats" })), {
+          keepalive: true,
+        })
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function (data) {
+            pendingStats = data;
+            tryRenderStats();
+          })
+          .catch(function () {
+            setStatus("無法載入瀏覽統計", true);
+          });
       });
+
+    patchIpsInBackground();
+  }
+
+  function recordVisitAndShowStats() {
+    sendHitImmediately();
   }
 
   function init() {
@@ -196,7 +330,12 @@ const PAGEVIEW_CONFIG = {
       return;
     }
 
-    recordVisit().finally(loadStats);
+    tryRenderStats();
+    recordVisitAndShowStats();
+  }
+
+  if (PAGEVIEW_CONFIG.API_URL) {
+    sendHitImmediately();
   }
 
   if (document.readyState === "loading") {
