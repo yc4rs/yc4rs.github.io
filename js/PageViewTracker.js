@@ -3,7 +3,7 @@
  *
  * 【試算表】每天分頁 yyyy-MM-dd
  *   visit_ts | timestamp | device_id | device_fp | public_ip
- * 進頁立刻 hit；背景 patch 依 visit_ts 補 public_ip。
+ * 進頁立刻 stats（樂觀 +1 先畫）+ hit（寫入後回傳正式筆數）；背景 patch 補 device_fp、public_ip。
  */
 const PAGEVIEW_CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxQGQil_6_0KCoDk_6Amrv99qSlPJWOfeoeC6EpQWNDX0OvjYfGDi7DLQjtUNgOeAldWg/exec",
@@ -102,9 +102,7 @@ const PAGEVIEW_CONFIG = {
       if (stored) return stored;
 
       var id =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : "dev-" + visitTs + "-" + Math.random().toString(16).slice(2);
+        typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "dev-" + visitTs + "-" + Math.random().toString(16).slice(2);
       localStorage.setItem(PAGEVIEW_CONFIG.DEVICE_ID_KEY, id);
       return id;
     } catch (e) {
@@ -113,11 +111,7 @@ const PAGEVIEW_CONFIG = {
   }
 
   function getDeviceFingerprint() {
-    var raw = [
-      String(navigator.hardwareConcurrency || ""),
-      String(navigator.deviceMemory || ""),
-      String(navigator.maxTouchPoints || ""),
-    ].join("|");
+    var raw = [String(navigator.hardwareConcurrency || ""), String(navigator.deviceMemory || ""), String(navigator.maxTouchPoints || "")].join("|");
 
     if (!window.crypto || !crypto.subtle || !window.TextEncoder) {
       return Promise.resolve("");
@@ -160,15 +154,49 @@ const PAGEVIEW_CONFIG = {
     return PAGEVIEW_CONFIG.API_URL + "?" + params.toString();
   }
 
-  function patchPublicIpInBackground() {
-    fetchPublicIp().then(function (publicIp) {
-      if (!publicIp) return;
+  function bumpTodayInWeek(week, todayViews) {
+    if (!week || !week.length) return week;
+    var today = formatDate(new Date());
+    return week.map(function (item) {
+      if (item.date === today) {
+        return { date: item.date, views: todayViews };
+      }
+      return item;
+    });
+  }
+
+  function loadStatsOptimistic() {
+    if (!PAGEVIEW_CONFIG.API_URL) return;
+
+    fetch(buildApiUrl(new URLSearchParams({ action: "stats" })), { keepalive: true })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        if (pendingStats && pendingStats.ok) return;
+
+        pendingStats = {
+          today: Number(data.today) + 1,
+          week: bumpTodayInWeek(data.week, Number(data.today) + 1),
+        };
+        tryRenderStats();
+      })
+      .catch(function () {});
+  }
+
+  function patchVisitDetailsInBackground() {
+    Promise.all([getDeviceFingerprint(), fetchPublicIp()]).then(function (results) {
+      var deviceFp = results[0];
+      var publicIp = results[1];
+      if (!deviceFp && !publicIp) return;
 
       var params = new URLSearchParams({
         action: "patch",
         visit_ts: String(visitTs),
-        public_ip: publicIp,
       });
+      if (deviceFp) params.set("device_fp", deviceFp);
+      if (publicIp) params.set("public_ip", publicIp);
+
       fetch(buildApiUrl(params), { keepalive: true }).catch(function () {});
     });
   }
@@ -178,26 +206,27 @@ const PAGEVIEW_CONFIG = {
     hitSent = true;
 
     var deviceId = getDeviceId();
+    var params = new URLSearchParams({
+      action: "hit",
+      visit_ts: String(visitTs),
+      device_id: deviceId,
+      device_fp: "",
+      public_ip: "",
+    });
 
-    getDeviceFingerprint()
-      .then(function (deviceFp) {
-        var params = new URLSearchParams({
-          action: "hit",
-          visit_ts: String(visitTs),
-          device_id: deviceId,
-          device_fp: deviceFp,
-          public_ip: "",
-        });
-        return fetch(buildApiUrl(params), { keepalive: true });
-      })
+    fetch(buildApiUrl(params), { keepalive: true })
       .then(function (res) {
         return res.json();
       })
       .then(function (data) {
-        pendingStats = data;
-        tryRenderStats();
+        if (data && data.ok !== false && typeof data.today === "number") {
+          pendingStats = data;
+          tryRenderStats();
+        }
       })
       .catch(function () {
+        if (pendingStats) return;
+
         fetch(buildApiUrl(new URLSearchParams({ action: "stats" })), {
           keepalive: true,
         })
@@ -213,7 +242,7 @@ const PAGEVIEW_CONFIG = {
           });
       });
 
-    patchPublicIpInBackground();
+    patchVisitDetailsInBackground();
   }
 
   function recordVisitAndShowStats() {
@@ -233,6 +262,7 @@ const PAGEVIEW_CONFIG = {
   }
 
   if (PAGEVIEW_CONFIG.API_URL) {
+    loadStatsOptimistic();
     sendHitImmediately();
   }
 
