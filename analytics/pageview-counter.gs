@@ -2,15 +2,10 @@
  * RS工具箱 — 瀏覽量計數後端（Google Apps Script）
  *
  * 【試算表結構】每天一個分頁（yyyy-MM-dd）
- *   visit_ts | timestamp | device_id | device_fp | local_ip | public_ip
+ *   visit_ts | timestamp | device_id | device_fp | public_ip
  *
  * 【重要】修改程式後：部署 → 管理部署作業 → 編輯 → 新版本 → 部署
- *
- * 【API】
- * GET ?action=hit&visit_ts=&device_id=&device_fp= → 立刻寫入，回傳 stats
- * GET ?action=patch&visit_ts=&public_ip=&local_ip= → 依 visit_ts 補 IP
- * GET ?action=stats
- * GET ?action=debug
+ * 若欄位錯位：執行 repairTodaySheet，刪除今日分頁錯誤資料列後重新測試
  */
 
 const TIMEZONE = 'Asia/Taipei';
@@ -20,9 +15,9 @@ const LOG_HEADERS = [
   'timestamp',
   'device_id',
   'device_fp',
-  'local_ip',
   'public_ip',
 ];
+const LOG_COL_COUNT = LOG_HEADERS.length;
 
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'stats';
@@ -41,7 +36,7 @@ function doGet(e) {
   if (action === 'patch') {
     lock.waitLock(10000);
     try {
-      patchVisitIps(e);
+      patchVisitPublicIp(e);
       return jsonResponse({ ok: true });
     } finally {
       lock.releaseLock();
@@ -67,31 +62,30 @@ function isDaySheetName(name) {
   return DAY_SHEET_PATTERN.test(String(name));
 }
 
+function headersMatch(sheet) {
+  if (sheet.getLastRow() < 1) return false;
+
+  for (let i = 0; i < LOG_COL_COUNT; i++) {
+    const current = String(sheet.getRange(1, i + 1).getValue()).trim();
+    if (current !== LOG_HEADERS[i]) return false;
+  }
+
+  return true;
+}
+
+function applySheetFormats(sheet) {
+  sheet.getRange(1, 1, sheet.getMaxRows(), LOG_COL_COUNT).setNumberFormat('@');
+}
+
 function ensureLogHeaders(sheet) {
   if (sheet.getLastRow() < 1) {
-    sheet.appendRow(LOG_HEADERS);
-    sheet.setFrozenRows(1);
-    return;
+    sheet.getRange(1, 1, 1, LOG_COL_COUNT).setValues([LOG_HEADERS]);
+  } else if (!headersMatch(sheet)) {
+    sheet.getRange(1, 1, 1, LOG_COL_COUNT).setValues([LOG_HEADERS]);
   }
 
-  const firstHeader = String(sheet.getRange(1, 1).getValue()).trim();
-
-  if (firstHeader === 'visit_ts') {
-    const col3 = String(sheet.getRange(1, 3).getValue()).trim();
-    if (col3 === 'local_ip') {
-      sheet.insertColumnsBefore(3, 2);
-      sheet.getRange(1, 3).setValue('device_id');
-      sheet.getRange(1, 4).setValue('device_fp');
-    }
-    sheet.setFrozenRows(1);
-    return;
-  }
-
-  if (firstHeader === 'timestamp') {
-    sheet.insertColumnBefore(1);
-    sheet.getRange(1, 1).setValue('visit_ts');
-    sheet.setFrozenRows(1);
-  }
+  sheet.setFrozenRows(1);
+  applySheetFormats(sheet);
 }
 
 function getDaySheet(dateStr, createIfMissing) {
@@ -104,6 +98,9 @@ function getDaySheet(dateStr, createIfMissing) {
 
   if (!sheet && createIfMissing) {
     sheet = ss.insertSheet(dateStr);
+  }
+
+  if (sheet) {
     ensureLogHeaders(sheet);
   }
 
@@ -126,6 +123,13 @@ function parseVisitTs(params) {
   return visitTs;
 }
 
+function normalizeVisitTsValue(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const num = Number(value);
+  if (!isNaN(num) && num > 0) return String(Math.floor(num));
+  return String(value).trim();
+}
+
 function formatVisitTs(visitTs) {
   const d = new Date(Number(visitTs));
   const base = Utilities.formatDate(d, TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
@@ -145,12 +149,16 @@ function sanitizeCell(value, maxLen) {
 }
 
 function findRowByVisitTs(sheet, visitTs) {
-  const data = sheet.getDataRange().getValues();
-  const target = String(visitTs);
+  const target = normalizeVisitTsValue(visitTs);
+  if (!target) return -1;
 
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === target) {
-      return i + 1;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+
+  const values = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < values.length; i++) {
+    if (normalizeVisitTsValue(values[i][0]) === target) {
+      return i + 2;
     }
   }
 
@@ -169,28 +177,27 @@ function recordVisit(e) {
   if (!visitTs) return;
 
   const sheet = getDaySheet(todayStr(), true);
-  ensureLogHeaders(sheet);
-
   if (findRowByVisitTs(sheet, visitTs) > 0) return;
 
-  sheet.appendRow([
-    visitTs,
-    formatVisitTs(visitTs),
-    sanitizeCell(params.device_id, 48),
-    sanitizeCell(params.device_fp, 64),
-    sanitizeCell(params.local_ip),
-    sanitizeCell(params.public_ip),
+  const row = sheet.getLastRow() + 1;
+  sheet.getRange(row, 1, 1, LOG_COL_COUNT).setValues([
+    [
+      normalizeVisitTsValue(visitTs),
+      formatVisitTs(visitTs),
+      sanitizeCell(params.device_id, 48),
+      sanitizeCell(params.device_fp, 64),
+      sanitizeCell(params.public_ip),
+    ],
   ]);
 }
 
-function patchVisitIps(e) {
+function patchVisitPublicIp(e) {
   const params = (e && e.parameter) || {};
   const visitTs = parseVisitTs(params);
   if (!visitTs) return;
 
-  const localIp = sanitizeCell(params.local_ip);
   const publicIp = sanitizeCell(params.public_ip);
-  if (!localIp && !publicIp) return;
+  if (!publicIp) return;
 
   const sheet = getDaySheet(todayStr(), false);
   if (!sheet) return;
@@ -198,8 +205,7 @@ function patchVisitIps(e) {
   const row = findRowByVisitTs(sheet, visitTs);
   if (row < 0) return;
 
-  if (localIp) sheet.getRange(row, 5).setValue(localIp);
-  if (publicIp) sheet.getRange(row, 6).setValue(publicIp);
+  sheet.getRange(row, 5).setValue(publicIp);
 }
 
 function getStats() {
@@ -229,13 +235,14 @@ function listDaySheets() {
 
 function getDebugInfo() {
   const today = todayStr();
+  const sheet = getDaySheet(today, false);
 
   return {
     today: today,
-    todaySheetExists: !!getDaySheet(today, false),
+    todaySheetExists: !!sheet,
+    headersOk: sheet ? headersMatch(sheet) : false,
     todayViews: countVisitsForDate(today),
     daySheetCount: listDaySheets().length,
-    daySheets: listDaySheets().slice(-7),
     stats: getStats(),
   };
 }
@@ -248,5 +255,12 @@ function jsonResponse(obj) {
 
 function testSetup() {
   getDaySheet(todayStr(), true);
+  Logger.log(JSON.stringify(getDebugInfo()));
+}
+
+/** 修正今日分頁表頭與欄位格式（不刪資料列，錯列請手動刪除） */
+function repairTodaySheet() {
+  const sheet = getDaySheet(todayStr(), true);
+  ensureLogHeaders(sheet);
   Logger.log(JSON.stringify(getDebugInfo()));
 }
